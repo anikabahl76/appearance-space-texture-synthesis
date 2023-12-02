@@ -5,6 +5,8 @@ CSCI 1290 Final Project
 
 - [project webpage](https://hhoppe.com/proj/apptexsyn/)
 - [paper](https://hhoppe.com/apptexsyn.pdf)
+- [previous paper](https://hhoppe.com/paratexsyn.pdf)
+- [matlab implementation of previous paper](https://github.com/mrmartin/parallel_texture_synthesis/tree/master)
 
 # planning (ordered)
 
