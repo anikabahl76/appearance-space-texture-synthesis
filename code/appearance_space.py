@@ -1,17 +1,26 @@
 import numpy as np
+import cv2
 from sklearn.decomposition import PCA
 from PIL import Image
+from skimage.filters import sobel, gaussian
+import matplotlib.pyplot as plt
 
-def get_appearance_space_vector(im, surrounding_size):
+def get_appearance_space_vector(im, surrounding_size, feature_distance=True):
+    dims = 4 if feature_distance else 3
+    grayscale_im = cv2.cvtColor(im,cv2.COLOR_RGB2GRAY)
+    edges = sobel(grayscale_im)
     useable_im = im[surrounding_size:-surrounding_size, surrounding_size:-surrounding_size, :]
-    vector_im = np.zeros((useable_im.shape[0], useable_im.shape[1], 3 * (2 * surrounding_size + 1)**2))
+    vector_im = np.zeros((useable_im.shape[0], useable_im.shape[1], dims * (2 * surrounding_size + 1)**2))
     for i in range(surrounding_size, im.shape[0] - surrounding_size):
         for j in range(surrounding_size, im.shape[1] - surrounding_size):
             patch = im[i - surrounding_size:i + surrounding_size + 1, j - surrounding_size:j + surrounding_size + 1, :]
-            patch = np.reshape(patch, (3 * (2 * surrounding_size + 1)**2,))
+            if feature_distance:
+                patch_edges = edges[i - surrounding_size:i + surrounding_size + 1, j - surrounding_size:j + surrounding_size + 1]
+                patch_edges = np.expand_dims(patch_edges, axis=2)
+                patch = np.concatenate([patch, patch_edges], axis=2)
+            patch = np.reshape(patch, (dims * (2 * surrounding_size + 1)**2,))
             vector_im[i - surrounding_size, j - surrounding_size] = patch
     return useable_im, vector_im
-
 
 def conduct_pca(image_with_features, desired_dimensions=8):
     original_shape = image_with_features.shape
@@ -22,7 +31,8 @@ def conduct_pca(image_with_features, desired_dimensions=8):
     return new_features
 
 
-    
-# im = np.array(Image.open("data/1.3.1.png"), dtype=np.float64)[:, :, :3]/255.0
-# og, vec = get_appearance_space_vector(im, 2)
-# new_features = conduct_pca(vec)
+
+im = cv2.imread("data/1.3.1.png", cv2.COLOR_BGR2RGB)
+im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+og, vec = get_appearance_space_vector(im, 2)
+new_features = conduct_pca(vec)
