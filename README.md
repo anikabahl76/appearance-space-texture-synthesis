@@ -4,8 +4,9 @@ CSCI 1290 Final Project
 # resources from the authors
 
 - [project webpage](https://hhoppe.com/proj/apptexsyn/)
-- [paper](https://hhoppe.com/apptexsyn.pdf)
-- [previous paper](https://hhoppe.com/paratexsyn.pdf)
+- [appearance space texsyn](https://hhoppe.com/apptexsyn.pdf)
+- [parallel controllable texsyn](https://hhoppe.com/paratexsyn.pdf)
+- [texsyn with k-coherent search (Tong)](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/btfsynthesis.pdf)
 - [matlab implementation of previous paper](https://github.com/mrmartin/parallel_texture_synthesis/tree/master)
 
 # planning (ordered)
