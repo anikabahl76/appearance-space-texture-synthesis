@@ -12,6 +12,24 @@ def build_gaussian(img, with_pyramid):
     pass
 
 
+def build_param_dict(m, l, with_pyramid):
+    params = {}
+    params['m'] = m
+    params['l'] = l
+    
+    if with_pyramid:
+        for i in range(l+1):
+            params['h'][i] = 1
+    else:
+        for i in range(l+1):
+            params['h'][i] = 2**(l-i)
+
+    for i in range(l+1):
+        params['r'][i] = (3/4)**(l-i)
+
+    return params
+
+
 def upsample(S, m, h, with_pyramid):
     # TODO: check if m should be the full-sized exemplar m or the appropriate pyramid/stack's m
     new_S = np.zeros(S.shape[0] * 2, S.shape[1] * 2, 2)
