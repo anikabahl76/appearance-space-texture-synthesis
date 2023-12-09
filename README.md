@@ -7,6 +7,7 @@ CSCI 1290 Final Project
 - [appearance space texsyn](https://hhoppe.com/apptexsyn.pdf)
 - [parallel controllable texsyn](https://hhoppe.com/paratexsyn.pdf)
 - [texsyn with k-coherent search (Tong)](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/btfsynthesis.pdf)
+- [ying et al for anisometric](https://mrl.cs.nyu.edu/publications/synthsurf/synthsurf.pdf)
 - [matlab implementation of previous paper](https://github.com/mrmartin/parallel_texture_synthesis/tree/master)
 
 # planning (ordered)
