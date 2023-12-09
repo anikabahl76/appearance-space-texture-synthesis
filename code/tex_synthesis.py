@@ -109,9 +109,9 @@ def isometric_correction(S, E):
     N_s_p = N_e_u = np.zeros(S.shape)
     N_s_p[S+DELTA] = sum(E_prime[S+DELTA+(M*DELTA)]-(M*DELTA)) / 3
     N_e_u[S+DELTA] = sum(E_prime[E+DELTA+(M*DELTA)]-(M*DELTA)) / 3
-    S = np.argmin(N_s_p - N_e_u) # need to add C(p) stuff
+    S = np.argmin(abs(N_s_p - N_e_u)) # need to add C(p) stuff
 
-    return N_s_p
+    return S
 
 
 def anisometric_correction(S, E):
