@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 from sklearn.decomposition import PCA
 from PIL import Image
-from skimage.filters import sobel, gaussian
+from skimage.filters import sobel
 import matplotlib.pyplot as plt
 
 def get_appearance_space_vector(im, surrounding_size, feature_distance=True):
