@@ -6,6 +6,7 @@ import hashlib
 C = 2 ## number of passes
 S = 2 ## number of subpasses
 DELTA = np.array([[0,0], [0,1], [1,0], [1,1]]) ## 4 possible subpixel shifts IN (Y,X) coords
+HASH_SEED = 1290 ## seed for jittering
 
 def build_gaussian(img, with_pyramid):
     pass
@@ -31,28 +32,18 @@ def upsample(S, m, h, with_pyramid):
     return new_S
 
 
-def jitter(S, h, r):
+def jitter(S, h, r, m, l):
     J = np.zeros(S.shape[0], S.shape[1], 2)
-    J = np.floor(h * hash_coords(S) * r + np.array[[0.5, 0.5]])
+    J = np.floor(h * hash_coords(S, m, l) * r + np.array[[0.5, 0.5]])
     return S + J
 
 
-def hash_coords(S):
+def hash_coords(S, m, l):
     '''
     Hash function that generates a subpixel shift for each pixel in a matrix
     '''
-    y_hash = np.zeros(S.shape[0], S.shape[1])
-    x_hash = np.zeros(S.shape[0], S.shape[1])
-
-    y_hash = hash(S[:,:,0])
-    x_hash = hash(S[:,:,1])
-
-    stacked = np.stack((y_hash, x_hash), axis=2)
-    hashed = stacked + 1 
-    normed = hashed / np.power(10,len(str(hashed.max())))
-    hashed = normed * np.power(-1,np.mod(hashed,2))
-
-    return hashed
+    np.random.seed(HASH_SEED)
+    return np.random.rand(S.shape[0], S.shape[1], 2) * (m/(2**(l-1)) - m/(2**l))
 
 
 def isometric_correction(S, E):
