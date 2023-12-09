@@ -5,9 +5,12 @@ import numpy as np
 C = 2 ## number of passes
 S = 2 ## number of subpasses
 DELTA = np.array([[0,0], [0,1], [1,0], [0,1]])
+M = np.array([[[0,0],[0,0]], [[1,0],[0,0]], [[0,0],[0,1]]])
+
 
 def build_gaussian(img, with_pyramid):
     pass
+
 
 
 def upsample(S, m, h, with_pyramid):
@@ -34,7 +37,13 @@ def jitter(S):
     pass
 
 
-def isometric_correction(S, E):
+def isometric_correction(S, E): #E should be ~E'
+    # N_s_p = N_e_u = np.zeros(S.shape)
+    # N_s_p[S+DELTA] = sum(E_prime[S+DELTA+(M*DELTA)]-(M*DELTA)) / 3
+    # N_e_u[S+DELTA] = sum(E_prime[E+DELTA+(M*DELTA)]-(M*DELTA)) / 3
+    # S = np.argmin(N_s_p - N_e_u) # need to add C(p) stuff
+
+    # return N_s_p
     pass
 
 
