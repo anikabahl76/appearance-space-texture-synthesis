@@ -42,8 +42,8 @@ def anisometric_correction(S, E):
     pass
 
 
-def synthesize_texture(E, E_prime, synth_mode="iso", is_toroidal=False):
-    E_stack, l = build_gaussian_stack(E)
+def synthesize_texture(E, E_prime, synth_mode="iso", with_pyramid=False):
+    E_stack, l = build_gaussian(E, with_pyramid)
 
     S_stack = []
     
@@ -54,7 +54,7 @@ def synthesize_texture(E, E_prime, synth_mode="iso", is_toroidal=False):
 
     for i in range(l+1):
         E_i = E_stack[i]
-        S_i = upsample(S_i, is_toroidal)
+        S_i = upsample(S_i, with_pyramid)
         S_i = jitter(S_i)
         if l > 2:
             for _ in range(C):
