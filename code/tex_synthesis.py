@@ -105,14 +105,13 @@ def hash_coords(S, m, l):
     return np.random.rand(S.shape[0], S.shape[1], 2) * (m/(2**(l-1)) - m/(2**l))
 
 
-def isometric_correction(S, E): #E should be ~E'
-    # N_s_p = N_e_u = np.zeros(S.shape)
-    # N_s_p[S+DELTA] = sum(E_prime[S+DELTA+(M*DELTA)]-(M*DELTA)) / 3
-    # N_e_u[S+DELTA] = sum(E_prime[E+DELTA+(M*DELTA)]-(M*DELTA)) / 3
-    # S = np.argmin(N_s_p - N_e_u) # need to add C(p) stuff
+def isometric_correction(S, E):
+    N_s_p = N_e_u = np.zeros(S.shape)
+    N_s_p[S+DELTA] = sum(E_prime[S+DELTA+(M*DELTA)]-(M*DELTA)) / 3
+    N_e_u[S+DELTA] = sum(E_prime[E+DELTA+(M*DELTA)]-(M*DELTA)) / 3
+    S = np.argmin(N_s_p - N_e_u) # need to add C(p) stuff
 
-    # return N_s_p
-    pass
+    return N_s_p
 
 
 def anisometric_correction(S, E):
