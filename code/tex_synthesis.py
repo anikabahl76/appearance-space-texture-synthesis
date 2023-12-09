@@ -55,23 +55,32 @@ def build_gaussian(img, with_pyramid):
     img_size = img.shape[0]
     depth = int(np.log2(img_size))
     if with_pyramid or depth < 5:
-        return gaussian_pyramid(img, depth), depth
+        return gaussian_pyramid(img, depth - 1), depth
     else:
         return gaussian_stack(img, depth), depth
 
 def gaussian_stack(img, depth=2):
-    augmented_image = np.pad(img, ((img.shape[0]//2, img.shape[0]//2), (img.shape[1]//2, img.shape[1]//2), (0, 0)), "reflect")
-    windows = view_as_windows(augmented_image, img.shape)
-    a, b, c, d, e, f = windows.shape
-    windows = np.reshape(windows, (a * b * c, d, e, f))
-    all_gaussians = np.zeros((windows.shape[0], depth + 1, img.shape[0], img.shape[1], img.shape[2]))
-    for i in range(windows.shape[0]):
-        current_window = windows[i]
-        current_gaussian = gaussian_pyramid(current_window, depth, downsample=False)
-        current_gaussian = np.array(current_gaussian)
-        all_gaussians[i, :, :, :, :] = current_gaussian
-
-    final_gaussian = np.average(all_gaussians, axis=0)
+    # augmented_image = np.pad(img, ((img.shape[0]//2, img.shape[0]//2), (img.shape[1]//2, img.shape[1]//2), (0, 0)), "reflect")
+    # windows = view_as_windows(augmented_image, img.shape)
+    # a, b, c, d, e, f = windows.shape
+    # windows = np.reshape(windows, (a * b * c, d, e, f))
+    # all_gaussians = np.zeros((windows.shape[0], depth + 1, img.shape[0], img.shape[1], img.shape[2]))
+    # for i in range(windows.shape[0]):
+    #     current_window = windows[i]
+    #     current_gaussian = gaussian_pyramid(current_window, depth, downsample=False)
+    #     current_gaussian = np.array(current_gaussian)
+    #     all_gaussians[i, :, :, :, :] = current_gaussian
+    # print(all_gaussians.shape)
+    # final_gaussian = np.average(all_gaussians, axis=0)
+    # print(final_gaussian.shape)
+    # final_gaussian = gaussian_pyramid(img, depth, downsample=False)
+    final_gaussian = []
+    for i in range(depth):
+        w = 2**(depth - i)
+        s = depth - i
+        t = (((w - 1)/2)-0.5)/s
+        blur = gaussian(img, sigma=s, truncate=t)
+        final_gaussian.append(blur)
     return final_gaussian
 
 def upsample(S, m, h, with_pyramid):
@@ -147,7 +156,10 @@ def synthesize_texture(E, E_prime, synth_mode="iso", with_pyramid=True):
 
 
 if __name__ == "__main__":
-    im = cv2.imread("data/texture2.jpg", cv2.COLOR_BGR2RGB)
+    im = cv2.imread("data/texture3.png", cv2.COLOR_BGR2RGB)
     im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    stack, l = build_gaussian(im, False)
+    for i in range(l):
+        plt.imshow(stack[i])
+        plt.show()
 
-    gaussian_stack(im)
