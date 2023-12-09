@@ -32,7 +32,7 @@ def conduct_pca(image_with_features, desired_dimensions=8):
 
 
 
-im = cv2.imread("data/1.3.1.png", cv2.COLOR_BGR2RGB)
-im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-og, vec = get_appearance_space_vector(im, 2)
-new_features = conduct_pca(vec)
+# im = cv2.imread("data/1.3.1.png", cv2.COLOR_BGR2RGB)
+# im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+# og, vec = get_appearance_space_vector(im, 2)
+# new_features = conduct_pca(vec)

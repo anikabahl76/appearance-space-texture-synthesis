@@ -32,10 +32,10 @@ def build_param_dict(m, l, with_pyramid):
     return params
 
 
-def gaussian_pyramid(img, depth=6):
+def gaussian_pyramid(img, depth=2, downsample=True):
     downsampled_img = [img]
     for i in range(depth):
-        next_img = downsample(downsampled_img[-1])
+        next_img = blur_and_downsample(downsampled_img[-1], downsample=downsample)
         downsampled_img.append(next_img)
 
     downsampled_img.reverse()
@@ -43,33 +43,36 @@ def gaussian_pyramid(img, depth=6):
     return downsampled_img
 
 
-def downsample(im):
+def blur_and_downsample(im, downsample=True):
     blur = gaussian(im)
-    return blur[::2,::2]
+    if downsample:
+        return blur[::2,::2]
+    else: 
+        return blur
 
 
 def build_gaussian(img, with_pyramid):
-    if with_pyramid:
-        return gaussian_pyramid(img)
+    img_size = img.shape[0]
+    depth = int(np.log2(img_size))
+    if with_pyramid or depth < 5:
+        return gaussian_pyramid(img, depth), depth
     else:
-        pass
+        return gaussian_stack(img, depth), depth
 
-
-def gaussian_stack(img):
-    img_shape = img.shape
-    print(img.shape)
-    augmented_image = np.pad(img, ((img_shape[0]//2, img_shape[0]//2), (img_shape[1]//2, img_shape[1]//2), (0, 0)), "reflect")
-    print(augmented_image.shape)
-    plt.imshow(augmented_image)
-    plt.show()
-    windows = view_as_windows(augmented_image, img_shape)
+def gaussian_stack(img, depth=2):
+    augmented_image = np.pad(img, ((img.shape[0]//2, img.shape[0]//2), (img.shape[1]//2, img.shape[1]//2), (0, 0)), "reflect")
+    windows = view_as_windows(augmented_image, img.shape)
     a, b, c, d, e, f = windows.shape
     windows = np.reshape(windows, (a * b * c, d, e, f))
-    all_gaussians = 
+    all_gaussians = np.zeros((windows.shape[0], depth + 1, img.shape[0], img.shape[1], img.shape[2]))
     for i in range(windows.shape[0]):
         current_window = windows[i]
-        current_gaussian = gaussian_pyramid(current_window)
+        current_gaussian = gaussian_pyramid(current_window, depth, downsample=False)
+        current_gaussian = np.array(current_gaussian)
+        all_gaussians[i, :, :, :, :] = current_gaussian
 
+    final_gaussian = np.average(all_gaussians, axis=0)
+    return final_gaussian
 
 def upsample(S, m, h, with_pyramid):
     # TODO: check if m should be the full-sized exemplar m or the appropriate pyramid/stack's m
@@ -119,7 +122,7 @@ def anisometric_correction(S, E):
     pass
 
 
-def synthesize_texture(E, E_prime, synth_mode="iso", with_pyramid=False):
+def synthesize_texture(E, E_prime, synth_mode="iso", with_pyramid=True):
     E_stack, l = build_gaussian(E, with_pyramid)
 
     S_stack = []
@@ -146,4 +149,5 @@ def synthesize_texture(E, E_prime, synth_mode="iso", with_pyramid=False):
 if __name__ == "__main__":
     im = cv2.imread("data/texture2.jpg", cv2.COLOR_BGR2RGB)
     im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+
     gaussian_stack(im)
