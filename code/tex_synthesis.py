@@ -11,8 +11,8 @@ from appearance_space import get_appearance_space_vector, conduct_pca
 C = 2 ## number of passes
 S = 2 ## number of subpasses
 UPSAMPLE_DELTA = np.expand_dims(np.array([[0,0], [0,1], [1,0], [0,1]]), (0,1))
-CORRECTION_DELTA = np.expand_dims(np.array([[1,1], [1,-1], [-1,1], [-1,-1]]), (0,1))
-M = np.array([[[0,0],[0,0]], [[1,0],[0,0]], [[0,0],[0,1]]])
+CORR_DELTA = np.expand_dims(np.array([[1,1], [1,-1], [-1,1], [-1,-1]]), (0,1))
+CORR_DELTA_PRIME = np.expand_dims(np.array([[[0,0], [1,0], [0,1]], [[0,0], [1,0], [0,-1]], [[0,0], [-1,0], [0,1]], [[0,0], [-1,0], [0,-1]]]), (0,1))
 HASH_SEED = 1290 ## seed for jittering
 
 
@@ -63,20 +63,6 @@ def build_gaussian(img, with_pyramid):
 
 
 def gaussian_stack(img, depth=2):
-    # augmented_image = np.pad(img, ((img.shape[0]//2, img.shape[0]//2), (img.shape[1]//2, img.shape[1]//2), (0, 0)), "reflect")
-    # windows = view_as_windows(augmented_image, img.shape)
-    # a, b, c, d, e, f = windows.shape
-    # windows = np.reshape(windows, (a * b * c, d, e, f))
-    # all_gaussians = np.zeros((windows.shape[0], depth + 1, img.shape[0], img.shape[1], img.shape[2]))
-    # for i in range(windows.shape[0]):
-    #     current_window = windows[i]
-    #     current_gaussian = gaussian_pyramid(current_window, depth, downsample=False)
-    #     current_gaussian = np.array(current_gaussian)
-    #     all_gaussians[i, :, :, :, :] = current_gaussian
-    # print(all_gaussians.shape)
-    # final_gaussian = np.average(all_gaussians, axis=0)
-    # print(final_gaussian.shape)
-    # final_gaussian = gaussian_pyramid(img, depth, downsample=False)
     final_gaussian = []
     for i in range(depth):
         w = 2**(depth - i)
@@ -120,13 +106,22 @@ def hash_coords(S, m, l):
     return np.random.rand(S.shape[0], S.shape[1], 2) * (m/(2**(l-1)) - m/(2**l))
 
 
-def isometric_correction(S, E_prime):
+def isometric_correction(S, Ept, Nt_Ept):
+    '''
     # N_s_p = N_e_u = np.zeros(S.shape)
     # N_s_p[S+DELTA] = np.sum(E_prime[S+DELTA+(M@DELTA)]-(M@DELTA)) / 3
     # N_e_u[S+DELTA] = sum(E_prime[E+DELTA+(M@DELTA)]-(M@DELTA)) / 3
     # S = np.argmin(N_s_p - N_e_u) # need to add C(p) stuff
 
     # return N_s_p
+    '''
+    N_S = np.zeros(S.shape[0], S.shape[1], 32)
+
+    for i in range(4):
+        N_S[..., 8*i:8*(i+1)] = np.sum(Ept[S + CORR_DELTA[..., i, :] + CORR_DELTA_PRIME[..., i, :, :]] - CORR_DELTA_PRIME[..., i, :], axis=2)
+            
+        
+    
     pass
 
 
@@ -134,7 +129,7 @@ def anisometric_correction(S, E):
     pass
 
 
-def synthesize_texture(E, synth_size=256, synth_mode="iso", with_pyramid=True):
+def synthesize_texture(E, synth_size=256, synth_mode="iso", with_pyramid=False):
     params = build_param_dict(E, l, with_pyramid)
     E_stack = build_gaussian(E, with_pyramid)
     AS_stack = []
@@ -147,24 +142,26 @@ def synthesize_texture(E, synth_size=256, synth_mode="iso", with_pyramid=True):
     for i in range(params['l']+1):
         h = params['h'][i]
         r = params['r'][i]
-        E_i = E_stack[i]
+        E_prime_tilde = AS_stack[i]
         S_i = upsample(S_i, params['m'], h, with_pyramid)
         S_i = jitter(S_i, params['m'], h, r, i)
         if l > 2:
             for _ in range(C):
                 if synth_mode == "iso":
-                    S_i = isometric_correction(S_i, E_prime)
+                    S_i = isometric_correction(S_i, E_prime_tilde)
                 elif synth_mode == "aniso":
-                    S_i = anisometric_correction(S_i, E_prime)
+                    S_i = anisometric_correction(S_i, E_prime_tilde)
 
     return S_i
 
 
 if __name__ == "__main__":
-    im = cv2.imread("data/texture3.png", cv2.COLOR_BGR2RGB)
-    im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-    stack, l = build_gaussian(im, False)
-    for i in range(l):
-        plt.imshow(stack[i])
-        plt.show()
+    # im = cv2.imread("data/texture3.png", cv2.COLOR_BGR2RGB)
+    # im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    # stack, l = build_gaussian(im, False)
+    # for i in range(l):
+    #     plt.imshow(stack[i])
+    #     plt.show()
+    print(CORR_DELTA_PRIME[...,0,:,:].shape)
+    print(CORR_DELTA[..., 0, ].shape)
 
