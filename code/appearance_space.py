@@ -22,6 +22,7 @@ def get_appearance_space_vector(im, surrounding_size, feature_distance=True):
             vector_im[i - surrounding_size, j - surrounding_size] = patch
     return useable_im, vector_im
 
+
 def conduct_pca(image_with_features, desired_dimensions=8):
     original_shape = image_with_features.shape
     image_with_features = np.reshape(image_with_features, (image_with_features.shape[0] * image_with_features.shape[1], image_with_features.shape[2]))
@@ -29,7 +30,6 @@ def conduct_pca(image_with_features, desired_dimensions=8):
     new_features = pca.fit_transform(image_with_features)
     new_features = np.reshape(new_features, (original_shape[0], original_shape[1], desired_dimensions))
     return new_features
-
 
 
 # im = cv2.imread("data/1.3.1.png", cv2.COLOR_BGR2RGB)

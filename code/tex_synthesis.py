@@ -9,15 +9,16 @@ from skimage.util import view_as_windows
 
 C = 2 ## number of passes
 S = 2 ## number of subpasses
-DELTA = np.array([[0,0], [0,1], [1,0], [0,1]])
+UPSAMPLE_DELTA = np.expand_dims(np.array([[0,0], [0,1], [1,0], [0,1]]), (0,1))
+CORRECTION_DELTA = np.expand_dims(np.array([[1,1], [1,-1], [-1,1], [-1,-1]]), (0,1))
 M = np.array([[[0,0],[0,0]], [[1,0],[0,0]], [[0,0],[0,1]]])
 HASH_SEED = 1290 ## seed for jittering
 
 
-def build_param_dict(m, l, with_pyramid):
+def build_param_dict(E, with_pyramid):
     params = {}
-    params['m'] = m
-    params['l'] = l
+    params['m'] = E.shape[0]
+    params['l'] = int(np.log2(params['m']))
     
     if with_pyramid:
         for i in range(l+1):
@@ -55,9 +56,10 @@ def build_gaussian(img, with_pyramid):
     img_size = img.shape[0]
     depth = int(np.log2(img_size))
     if with_pyramid or depth < 5:
-        return gaussian_pyramid(img, depth - 1), depth
+        return gaussian_pyramid(img, depth - 1)
     else:
-        return gaussian_stack(img, depth), depth
+        return gaussian_stack(img, depth)
+
 
 def gaussian_stack(img, depth=2):
     # augmented_image = np.pad(img, ((img.shape[0]//2, img.shape[0]//2), (img.shape[1]//2, img.shape[1]//2), (0, 0)), "reflect")
@@ -83,15 +85,15 @@ def gaussian_stack(img, depth=2):
         final_gaussian.append(blur)
     return final_gaussian
 
+
 def upsample(S, m, h, with_pyramid):
-    # TODO: check if m should be the full-sized exemplar m or the appropriate pyramid/stack's m
     new_S = np.zeros(S.shape[0] * 2, S.shape[1] * 2, 2)
 
     if with_pyramid:
-        new_S[2*S+DELTA] = np.mod(2*S + h*DELTA, m)
+        new_S[2*S+UPSAMPLE_DELTA] = np.mod(2*S + h*UPSAMPLE_DELTA, m)
     else:
-        rhs = np.floor(h * np.subtract(DELTA, 0.5))
-        new_S[2*S+DELTA] = np.mod(S + rhs, m)
+        rhs = np.floor(h * np.subtract(UPSAMPLE_DELTA, 0.5))
+        new_S[2*S+UPSAMPLE_DELTA] = np.mod(S + rhs, m)
         
     # if we need loops
     # I, J = np.meshgrid(np.arange(S.shape[0]), np.arange(S.shape[1]))
@@ -103,7 +105,7 @@ def upsample(S, m, h, with_pyramid):
     return new_S
 
 
-def jitter(S, h, r, m, l):
+def jitter(S, m, h, r, l):
     J = np.zeros(S.shape[0], S.shape[1], 2)
     J = np.floor(h * hash_coords(S, m, l) * r + np.array[[0.5, 0.5]])
     return S + J
@@ -117,10 +119,10 @@ def hash_coords(S, m, l):
     return np.random.rand(S.shape[0], S.shape[1], 2) * (m/(2**(l-1)) - m/(2**l))
 
 
-def isometric_correction(S, E): #E should be ~E'
+def isometric_correction(S, E_prime):
     # N_s_p = N_e_u = np.zeros(S.shape)
-    # N_s_p[S+DELTA] = sum(E_prime[S+DELTA+(M*DELTA)]-(M*DELTA)) / 3
-    # N_e_u[S+DELTA] = sum(E_prime[E+DELTA+(M*DELTA)]-(M*DELTA)) / 3
+    # N_s_p[S+DELTA] = np.sum(E_prime[S+DELTA+(M@DELTA)]-(M@DELTA)) / 3
+    # N_e_u[S+DELTA] = sum(E_prime[E+DELTA+(M@DELTA)]-(M@DELTA)) / 3
     # S = np.argmin(N_s_p - N_e_u) # need to add C(p) stuff
 
     # return N_s_p
@@ -131,26 +133,23 @@ def anisometric_correction(S, E):
     pass
 
 
-def synthesize_texture(E, E_prime, synth_mode="iso", with_pyramid=True):
-    E_stack, l = build_gaussian(E, with_pyramid)
+def synthesize_texture(E, E_prime, synth_size=256, synth_mode="iso", with_pyramid=True):
+    params = build_param_dict(E, l, with_pyramid)
+    E_stack = build_gaussian(E, with_pyramid)
+    S_i = np.zeros((synth_size, synth_size, 2))
 
-    S_stack = []
-    
-    W = E_stack[0].shape(1) // 2
-    H = E_stack[0].shape(0) // 2
-
-    S_i = np.zeros((H, W, 2))
-
-    for i in range(l+1):
+    for i in range(params['l']+1):
+        h = params['h'][i]
+        r = params['r'][i]
         E_i = E_stack[i]
-        S_i = upsample(S_i, with_pyramid)
-        S_i = jitter(S_i)
+        S_i = upsample(S_i, params['m'], h, with_pyramid)
+        S_i = jitter(S_i, params['m'], h, r, i)
         if l > 2:
             for _ in range(C):
                 if synth_mode == "iso":
-                    S_i = isometric_correction(S_i, E_i)
+                    S_i = isometric_correction(S_i, E_prime)
                 elif synth_mode == "aniso":
-                    S_i = anisometric_correction(S_i, E_i)
+                    S_i = anisometric_correction(S_i, E_prime)
 
     return S_i
 
