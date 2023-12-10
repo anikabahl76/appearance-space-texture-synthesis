@@ -4,7 +4,7 @@ import cv2
 import matplotlib.pyplot as plt
 from skimage.filters import gaussian
 from skimage.util import view_as_windows
-from appearance_space import get_appearance_space_vector, conduct_pca
+from appearance_space import get_appearance_space_vector, get_neighbors
 
 
 
@@ -132,10 +132,13 @@ def anisometric_correction(S, E):
 def synthesize_texture(E, synth_size=256, synth_mode="iso", with_pyramid=False):
     params = build_param_dict(E, l, with_pyramid)
     E_stack = build_gaussian(E, with_pyramid)
-    AS_stack = []
+    ASV_stack = []
     for E_prime in E_stack:
-        E_prime_tilde = conduct_pca(get_appearance_space_vector(E_prime, 2))
-        AS_stack.append(E_prime_tilde)
+        E_prime_tilde, _ = get_appearance_space_vector(E_prime, 2)
+        ASV_stack.append(E_prime_tilde)
+    neighbors_stack = []
+    for E_prime_tilde in ASV_stack:
+        neighbors_stack.append(get_neighbors(E_prime_tilde))
 
     S_i = np.zeros((synth_size, synth_size, 2))
 
