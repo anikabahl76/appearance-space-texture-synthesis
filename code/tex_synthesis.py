@@ -7,11 +7,12 @@ from skimage.util import view_as_windows
 from appearance_space import get_appearance_space_vector, get_neighborhoods, get_nearest_neighbors
 from scipy.spatial.distance import euclidean 
 
-C = 2 ## number of passes
-S = 2 ## number of subpasses
+CORR_PASSES = 2
+SQRT_S = 2
 UPSAMPLE_DELTA = np.expand_dims(np.array([[0,0], [0,1], [1,0], [0,1]]), (0,1))
 CORR_DELTA = np.expand_dims(np.array([[1,1], [1,-1], [-1,1], [-1,-1]]), (0,1))
 CORR_DELTA_PRIME = np.expand_dims(np.array([[[0,0], [1,0], [0,1]], [[0,0], [1,0], [0,-1]], [[0,0], [-1,0], [0,1]], [[0,0], [-1,0], [0,-1]]]), (0,1))
+SUBPASS_DELTA = np.expand_dims(np.array([[-1, -1], [-1, 0], [-1, 1], [0, -1], [0,0], [0,1], [1, -1], [1, 0], [1, 1]]), (0,1))
 HASH_SEED = 1290 ## seed for jittering
 
 
@@ -107,19 +108,25 @@ def hash_coords(S, m, l):
 
 def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs):
 
-    S_corr = np.ones_like(S) * -1
-
-    for i in range(4):
-        # TODO: implement subpasses, possibly without for loop?
-        pass
-
+    ## compute Ns
     Ns = np.zeros(S.shape[0], S.shape[1], 32)
-
     for i in range(4):
         Ns[..., 8*i:8*(i+1)] = np.sum(Ept[S + CORR_DELTA[..., i, :] + CORR_DELTA_PRIME[..., i, :, :]] - CORR_DELTA_PRIME[..., i, :], axis=2) / 3
-    
     Ns = pca.transform(Ns)
     Ns = np.reshape(Ns, (S.shape[0], S.shape[1], 8))
+
+    ## requisite variables
+    corrS = np.ones_like(S) * np.inf
+
+    ## subpass time!
+    for i in range(SQRT_S):
+        for j in range(SQRT_S):
+
+            indices = np.stack(np.meshgrid(np.arange(i,S.shape[0],SQRT_S), np.arange(j,S.shape[1],SQRT_S), indexing='ij'), axis=2)
+            filled = corrS != np.inf
+
+
+
 
     # find filled in neighbors in 3x3 window
     # compute delta from p to each filled neighbor
