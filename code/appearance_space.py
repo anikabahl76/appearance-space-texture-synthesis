@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 from sklearn.decomposition import PCA
+from sklearn.neighbors import NearestNeighbors
 from PIL import Image
 from skimage.filters import sobel
 import matplotlib.pyplot as plt
@@ -31,7 +32,8 @@ def conduct_pca(image_with_features, desired_dimensions=8):
     new_features = np.reshape(new_features, (original_shape[0], original_shape[1], desired_dimensions))
     return new_features, pca
 
-def get_neighbors(image_with_features, desired_dimensions=8):
+
+def get_neighborhoods(image_with_features, desired_dimensions=8):
     height, width, channels = image_with_features.shape
     neighbor_features = np.zeros((height, width, desired_dimensions * 4))
     for i in range(height):
@@ -55,8 +57,18 @@ def get_neighbors(image_with_features, desired_dimensions=8):
     return conduct_pca(neighbor_features)
 
 
+def get_nearest_neighbors(nb_vector_mat):
+    nb_vectors = np.reshape(nb_vector_mat, (-1, nb_vector_mat.shape[2]))
+    tree = NearestNeighbors(n_neighbors=2, algorithm='kd_tree', metric='l2', n_jobs=-1).fit(nb_vectors)
+    nearest_nbs = tree.kneighbors(nb_vectors, return_distance=False)
+    indices = np.indices(nearest_nbs.shape).reshape(-1, 2)
+    nearest_nbs = indices[nearest_nbs, 1]
+    nearest_nbs = np.reshape(nearest_nbs, (nb_vector_mat.shape[0], nb_vector_mat.shape[1], 2))
+    return nearest_nbs
 
-im = cv2.imread("data/texture2.jpg", cv2.COLOR_BGR2RGB)
-im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-og, vec = get_appearance_space_vector(im, 2)
-new_features, m = conduct_pca(vec)
+
+if __name__ == '__main__':
+    im = cv2.imread("data/texture2.jpg", cv2.COLOR_BGR2RGB)
+    im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    og, vec = get_appearance_space_vector(im, 2)
+    new_features, m = conduct_pca(vec)

@@ -4,9 +4,8 @@ import cv2
 import matplotlib.pyplot as plt
 from skimage.filters import gaussian
 from skimage.util import view_as_windows
-from appearance_space import get_appearance_space_vector, get_neighbors
-
-
+from appearance_space import get_appearance_space_vector, get_neighborhoods, get_nearest_neighbors
+from scipy.spatial import l2_distance 
 
 C = 2 ## number of passes
 S = 2 ## number of subpasses
@@ -19,7 +18,8 @@ HASH_SEED = 1290 ## seed for jittering
 def build_param_dict(E, with_pyramid):
     params = {}
     params['m'] = E.shape[0]
-    params['l'] = int(np.log2(params['m']))
+    l = int(np.log2(params['m']))
+    params['l'] = l
     
     if with_pyramid:
         for i in range(l+1):
@@ -106,52 +106,59 @@ def hash_coords(S, m, l):
     return np.random.rand(S.shape[0], S.shape[1], 2) * (m/(2**(l-1)) - m/(2**l))
 
 
-def isometric_correction(S, Ept, Nt_Ept):
-    '''
-    # N_s_p = N_e_u = np.zeros(S.shape)
-    # N_s_p[S+DELTA] = np.sum(E_prime[S+DELTA+(M@DELTA)]-(M@DELTA)) / 3
-    # N_e_u[S+DELTA] = sum(E_prime[E+DELTA+(M@DELTA)]-(M@DELTA)) / 3
-    # S = np.argmin(N_s_p - N_e_u) # need to add C(p) stuff
+def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs):
+    for i in range(4):
+        # TODO: implement subpasses, possibly without for loop?
+        pass
 
-    # return N_s_p
-    '''
-    N_S = np.zeros(S.shape[0], S.shape[1], 32)
+    Ns = np.zeros(S.shape[0], S.shape[1], 32)
 
     for i in range(4):
-        N_S[..., 8*i:8*(i+1)] = np.sum(Ept[S + CORR_DELTA[..., i, :] + CORR_DELTA_PRIME[..., i, :, :]] - CORR_DELTA_PRIME[..., i, :], axis=2)
-            
-        
+        Ns[..., 8*i:8*(i+1)] = np.sum(Ept[S + CORR_DELTA[..., i, :] + CORR_DELTA_PRIME[..., i, :, :]] - CORR_DELTA_PRIME[..., i, :], axis=2) / 3
     
-    pass
+    Ns = pca.transform(Ns)
+    Ns = np.reshape(Ns, (S.shape[0], S.shape[1], 8))
 
+    # find filled in neighbors in 3x3 window
+    # compute delta from p to each filled neighbor
+    # add delta to filled neighbors E-coordinates. this gets possible C1s.
+    # for each C1, add the nearest neighbo to list as well. this gets possible C2s.
+    # compute the distance between Ns[p] and Ne[C1]/Ne[C2]; find the candidate that minimizes this distance.
+    # set s to be this candidate.
 
 def anisometric_correction(S, E):
     pass
 
 
 def synthesize_texture(E, synth_size=256, synth_mode="iso", with_pyramid=False):
-    params = build_param_dict(E, l, with_pyramid)
+    params = build_param_dict(E, with_pyramid)
     E_stack = build_gaussian(E, with_pyramid)
     ASV_stack = []
     for E_prime in E_stack:
         E_prime_tilde, _ = get_appearance_space_vector(E_prime, 2)
         ASV_stack.append(E_prime_tilde)
     neighbors_stack = []
+    nearest_neighbors_stack = []
     for E_prime_tilde in ASV_stack:
-        neighbors_stack.append(get_neighbors(E_prime_tilde))
+        nbs, pca = get_neighborhoods(E_prime_tilde)
+        neighbors_stack.append((nbs, pca))
+        nearest_neighbors_stack.append(get_nearest_neighbors(nbs))
 
     S_i = np.zeros((synth_size, synth_size, 2))
 
     for i in range(params['l']+1):
         h = params['h'][i]
         r = params['r'][i]
-        E_prime_tilde = AS_stack[i]
+        E_prime_tilde = ASV_stack[i]
+        nbhds = neighbors_stack[i][0]
+        pca = neighbors_stack[i][1]
+        near_nbs = nearest_neighbors_stack[i][0]
         S_i = upsample(S_i, params['m'], h, with_pyramid)
         S_i = jitter(S_i, params['m'], h, r, i)
-        if l > 2:
+        if i > 2:
             for _ in range(C):
                 if synth_mode == "iso":
-                    S_i = isometric_correction(S_i, E_prime_tilde)
+                    S_i = isometric_correction(S_i, E_prime_tilde, nbhds, pca, near_nbs)
                 elif synth_mode == "aniso":
                     S_i = anisometric_correction(S_i, E_prime_tilde)
 
