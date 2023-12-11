@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from skimage.filters import gaussian
 from skimage.util import view_as_windows
 from appearance_space import get_appearance_space_vector, get_neighborhoods, get_nearest_neighbors
-from scipy.spatial import l2_distance 
+from scipy.spatial.distance import euclidean 
 
 C = 2 ## number of passes
 S = 2 ## number of subpasses
@@ -22,14 +22,11 @@ def build_param_dict(E, with_pyramid):
     params['l'] = l
     
     if with_pyramid:
-        for i in range(l+1):
-            params['h'][i] = 1
+        params['h'] = np.ones(l)
     else:
-        for i in range(l+1):
-            params['h'][i] = 2**(l-i)
+        params['h'] = np.power(2, np.arange(start=l, stop=-1, step=-1))
 
-    for i in range(l+1):
-        params['r'][i] = (3/4)**(l-i)
+    params['r'] =  np.power(.75, np.arange(start=l, stop=-1, step=-1))
 
     return params
 
@@ -57,9 +54,11 @@ def build_gaussian(img, with_pyramid):
     img_size = img.shape[0]
     depth = int(np.log2(img_size))
     if with_pyramid or depth < 5:
-        return gaussian_pyramid(img, depth - 1)
+        with_pyramid = True
+        return gaussian_pyramid(img, depth - 1), with_pyramid
     else:
-        return gaussian_stack(img, depth)
+        with_pyramid = False
+        return gaussian_stack(img, depth), with_pyramid
 
 
 def gaussian_stack(img, depth=2):
@@ -107,6 +106,9 @@ def hash_coords(S, m, l):
 
 
 def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs):
+
+    S_corr = np.ones_like(S) * -1
+
     for i in range(4):
         # TODO: implement subpasses, possibly without for loop?
         pass
@@ -131,8 +133,9 @@ def anisometric_correction(S, E):
 
 
 def synthesize_texture(E, synth_size=256, synth_mode="iso", with_pyramid=False):
+    E = E.astype(np.float32)
+    E_stack, with_pyramid = build_gaussian(E, with_pyramid)
     params = build_param_dict(E, with_pyramid)
-    E_stack = build_gaussian(E, with_pyramid)
     ASV_stack = []
     for E_prime in E_stack:
         E_prime_tilde, _ = get_appearance_space_vector(E_prime, 2)
@@ -172,6 +175,22 @@ if __name__ == "__main__":
     # for i in range(l):
     #     plt.imshow(stack[i])
     #     plt.show()
-    print(CORR_DELTA_PRIME[...,0,:,:].shape)
-    print(CORR_DELTA[..., 0, ].shape)
-
+    print("reading image...")
+    E = cv2.imread("../data/texture3.png")
+    E = cv2.cvtColor(E, cv2.COLOR_BGR2RGB).astype(np.float32)
+    with_pyramid = False
+    print("building gaussian stack...")
+    E_stack, with_pyramid = build_gaussian(E, with_pyramid)
+    params = build_param_dict(E, with_pyramid)
+    print("building appearance space vectors...")
+    ASV_stack = []
+    for E_prime in E_stack:
+        E_prime_tilde, _ = get_appearance_space_vector(E_prime, 2)
+        ASV_stack.append(E_prime_tilde)
+    print("building neighborhoods...")
+    neighbors_stack = []
+    nearest_neighbors_stack = []
+    for E_prime_tilde in ASV_stack:
+        nbs, pca = get_neighborhoods(E_prime_tilde)
+        neighbors_stack.append((nbs, pca))
+        nearest_neighbors_stack.append(get_nearest_neighbors(nbs))

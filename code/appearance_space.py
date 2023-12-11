@@ -49,21 +49,24 @@ def get_neighborhoods(image_with_features, desired_dimensions=8):
                     dimensions.append(image_with_features[i + 1, j - 1])
                 if j < width - 1:
                     dimensions.append(image_with_features[i + 1, j + 1])
-            while len(dimensions != 4):
+            while len(dimensions) != 4:
                 dimensions.append(image_with_features[i, j])
             dimensions = np.array(dimensions)
-            np.reshape(dimensions, (desired_dimensions * 4,))
-            neighbor_features[i, j] = dimensions
+            neighbor_features[i, j] = np.reshape(dimensions, (desired_dimensions * 4,))
     return conduct_pca(neighbor_features)
 
 
-def get_nearest_neighbors(nb_vector_mat):
-    nb_vectors = np.reshape(nb_vector_mat, (-1, nb_vector_mat.shape[2]))
+def get_nearest_neighbors(nb_vectors):
+    # TODO: sanity check that linear indices (0-3600) are being mapped to the correct (y,x) coordinates
+    shape = (nb_vectors.shape[0], nb_vectors.shape[1], 2)
+    nb_vectors = np.reshape(nb_vectors, (-1, nb_vectors.shape[2]))
     tree = NearestNeighbors(n_neighbors=2, algorithm='kd_tree', metric='l2', n_jobs=-1).fit(nb_vectors)
     nearest_nbs = tree.kneighbors(nb_vectors, return_distance=False)
-    indices = np.indices(nearest_nbs.shape).reshape(-1, 2)
-    nearest_nbs = indices[nearest_nbs, 1]
-    nearest_nbs = np.reshape(nearest_nbs, (nb_vector_mat.shape[0], nb_vector_mat.shape[1], 2))
+    I, J = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), indexing='ij')
+    indices = np.stack([I, J], axis=2)
+    indices = indices.reshape((-1, 2))
+    nearest_nbs = indices[nearest_nbs[..., 1]]
+    nearest_nbs = np.reshape(nearest_nbs, shape)
     return nearest_nbs
 
 
