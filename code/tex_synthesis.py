@@ -5,7 +5,6 @@ from skimage.filters import gaussian
 from skimage.util import view_as_windows
 from appearance_space import get_appearance_space_vector, get_neighborhoods, get_nearest_neighbors
 from scipy.spatial.distance import euclidean
-import kc_search
 
 CORR_PASSES = 2
 SQRT_S = 2
@@ -117,23 +116,38 @@ def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs):
 
     ## requisite variables
     corrS = np.ones_like(S) * np.inf
+    corrS = np.pad(corrS, ((1,1), (1,1), (0,0)), mode='constant', constant_values=np.inf)
 
     ## subpass time!
     for i in range(SQRT_S):
         for j in range(SQRT_S):
 
             indices = np.stack(np.meshgrid(np.arange(i,S.shape[0],SQRT_S), np.arange(j,S.shape[1],SQRT_S), indexing='ij'), axis=2)
-            filled = corrS != np.inf
 
+            # ## compute Ns
+            # Ns = np.zeros(S.shape[0], S.shape[1], 32)
+            # interS = np.where(corrS[indices[..., 0] + 1, indices[..., 1] + 1] != np.inf, corrS[indices[..., 0] + 1, indices[..., 1] + 1], S[indices[..., 0], indices[..., 1]])
+            # for i in range(4):
+            #     Ns[..., 8*i:8*(i+1)] = np.sum(Ept[S + CORR_DELTA[..., i, :] + CORR_DELTA_PRIME[..., i, :, :]] - CORR_DELTA_PRIME[..., i, :], axis=2) / 3
+            # Ns = pca.transform(Ns)
+            # Ns = np.reshape(Ns, (S.shape[0], S.shape[1], 8))
 
+            indices = indices.reshape((-1, 2)) ## is this necessary?
+            all_nbs = indices + SUBPASS_DELTA
+            filled_nbs = np.where(corrS[all_nbs[..., 0] + 1, [..., 1] + 1] != np.inf, all_nbs, np.array([[np.inf,np.inf]])) ## +1 because of padding
+            filled_nbs_coord = np.where(filled_nbs != np.inf, S[filled_nbs[..., 0], filled_nbs[..., 1]], np.array([[np.inf,np.inf]]))
+            filled_near_nbs = np.where(filled_nbs_coord != np.inf, near_nbs[filled_nbs_coord[..., 0], filled_nbs_coord[..., 1]], np.array([[np.inf,np.inf]]))
+            filled_near_nbs = filled_near_nbs - SUBPASS_DELTA
 
+            candidates = np.stack([filled_nbs_coord, filled_near_nbs], axis=2)
+            candidates = np.reshape(candidates, (-1, 2)) ## is this necessary?
+            candidate_vecs = Nt_Ept[candidates[..., 0], candidates[..., 1]] ## what does this look like?
 
-    # find filled in neighbors in 3x3 window
-    # compute delta from p to each filled neighbor
-    # add delta to filled neighbors E-coordinates. this gets possible C1s.
-    # for each C1, add the nearest neighbo to list as well. this gets possible C2s.
-    # compute the distance between Ns[p] and Ne[C1]/Ne[C2]; find the candidate that minimizes this distance.
-    # set s to be this candidate.
+            distances = np.linalg.norm(candidate_vecs - Ns[indices[..., 0], indices[..., 1]], axis=1) ## check axis
+            min_idx = np.argmin(distances, axis=0) ## check axis
+        
+            corrS[indices[..., 0] + 1, indices[..., 1] + 1] = candidates[min_idx]
+
 
 def anisometric_correction(S, E):
     pass
