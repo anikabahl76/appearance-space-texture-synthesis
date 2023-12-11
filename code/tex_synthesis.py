@@ -1,11 +1,11 @@
-import math
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from skimage.filters import gaussian
 from skimage.util import view_as_windows
 from appearance_space import get_appearance_space_vector, get_neighborhoods, get_nearest_neighbors
-from scipy.spatial.distance import euclidean 
+from scipy.spatial.distance import euclidean
+import kc_search
 
 CORR_PASSES = 2
 SQRT_S = 2
