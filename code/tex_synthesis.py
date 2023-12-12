@@ -220,8 +220,9 @@ def synthesize_texture(E, synth_size=256, synth_mode="iso", with_pyramid=False):
 
 if __name__ == "__main__":
     print("reading image...")
-    E = cv2.imread("../data/texture2.jpg")
+    E = cv2.imread("../data/texture3.png")
     E = cv2.cvtColor(E, cv2.COLOR_BGR2RGB)
+    print("read image of size", E.shape)
     print("synthesizing texture...")
     S = synthesize_texture(E)
     print("done! u ate that up girlie pop!")

@@ -10,17 +10,19 @@ def get_appearance_space_vector(im, surrounding_size, feature_distance=True):
     dims = 4 if feature_distance else 3
     grayscale_im = cv2.cvtColor(im,cv2.COLOR_RGB2GRAY)
     edges = sobel(grayscale_im)
-    useable_im = im[surrounding_size:-surrounding_size, surrounding_size:-surrounding_size, :]
-    vector_im = np.zeros((useable_im.shape[0], useable_im.shape[1], dims * (2 * surrounding_size + 1)**2))
+    useable_im = np.pad(im, ((surrounding_size, surrounding_size), (surrounding_size, surrounding_size), (0, 0)), mode="reflect")
+    # useable_im = im[surrounding_size:-surrounding_size, surrounding_size:-surrounding_size, :]
+    vector_im = np.zeros((im.shape[0], im.shape[1], dims * (2 * surrounding_size + 1)**2))
     for i in range(surrounding_size, im.shape[0] - surrounding_size):
         for j in range(surrounding_size, im.shape[1] - surrounding_size):
-            patch = im[i - surrounding_size:i + surrounding_size + 1, j - surrounding_size:j + surrounding_size + 1, :]
+            patch = im[i - surrounding_size:i + surrounding_size+1, j - surrounding_size:j + surrounding_size+1, :]
             if feature_distance:
                 patch_edges = edges[i - surrounding_size:i + surrounding_size + 1, j - surrounding_size:j + surrounding_size + 1]
                 patch_edges = np.expand_dims(patch_edges, axis=2)
                 patch = np.concatenate([patch, patch_edges], axis=2)
             patch = np.reshape(patch, (dims * (2 * surrounding_size + 1)**2,))
             vector_im[i - surrounding_size, j - surrounding_size] = patch
+    print(vector_im.shape)
     return conduct_pca(vector_im)
 
 
