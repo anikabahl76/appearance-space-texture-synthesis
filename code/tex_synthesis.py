@@ -7,7 +7,7 @@ from skimage import io
 
 CORR_PASSES = 2
 SQRT_S = 2
-UPSAMPLE_DELTA = np.array([[0,0], [0,1], [1,0], [0,1]])
+UPSAMPLE_DELTA = np.array([[0,0], [0,1], [1,0], [1,1]])
 CORR_DELTA = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
 CORR_DELTA_PRIME = np.array([[[0,0], [1,0], [0,1]], [[0,0], [1,0], [0,-1]], [[0,0], [-1,0], [0,1]], [[0,0], [-1,0], [0,-1]]])
 SUBPASS_DELTA = np.array([[-1, -1], [-1, 0], [-1, 1], [0, -1], [0,0], [0,1], [1, -1], [1, 0], [1, 1]])
@@ -21,9 +21,8 @@ def build_param_dict(E):
     l = int(np.log2(params['m']))
     params['l'] = l
     
-    params['h'] = np.power(2, np.arange(start=l-1, stop=-1, step=-1))
-    params['r'] = np.power(0.3, np.arange(start=l-1, stop=-1, step=-1))
-    params['c'] = np.repeat([0, 6, 3], [3, 2, l-5])
+    params['h'] = np.power(2, np.arange(start=l, stop=-1, step=-1))
+    params['r'] = np.repeat(0.5, l)
 
     return params
 
@@ -43,7 +42,6 @@ def build_gaussian_stack(img):
 
 
 def upsample(S, m, h, synth_mode="iso", J=None):
-    # TODO: check if m should be the full-sized exemplar m or the appropriate pyramid/stack's m
     new_S = np.zeros((2*S.shape[0], 2*S.shape[1], 2))
 
     if synth_mode == "aniso": # not sure if this is the correct way
@@ -67,11 +65,13 @@ def hash_coords(S):
     '''
     Hash function that generates a subpixel shift for each pixel in a matrix
     '''
+    # TODO: implement as per 2005 paper?
     np.random.seed(HASH_SEED)
     return 2 * np.random.rand(S.shape[0], S.shape[1], 2) - 1
 
 
 def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs, m):
+    # TODO: move this inside of subpass loop?
     ## compute Ns
     Ns = np.zeros((S.shape[0], S.shape[1], 32))
 
@@ -80,8 +80,7 @@ def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs, m):
     S = np.pad(S, ((2,2), (2,2), (0,0)), mode='reflect').astype(np.int32)
     Ept = np.pad(Ept, ((2,2), (2,2), (0,0)), mode='reflect').astype(np.int32)
     
-    # TODO: figure out what the FAWK is going wrong with upsample/jitter that is breaking this shawty down so bad
-    ## (it's probably the jitter)
+    # TODO: figure out what is going wrong here that is breaking this shawty down so bad
     np.clip(S, 0, 31, out=S)
 
     for k in range(4):
@@ -187,7 +186,7 @@ def synthesize_texture(E, synth_size=32, synth_mode="iso"):
         S_i = jitter(S_i, h, r)
         if i > 2:
             print("correcting...")
-            for _ in range(params['c'][i]):
+            for _ in range(CORR_PASSES):
                 if synth_mode == "iso":
                     S_i = isometric_correction(S_i, E_prime_tilde, nbhds, pca, near_nbs, params['m'])
                 elif synth_mode == "aniso":
@@ -204,7 +203,7 @@ def convert_coords_to_image(E, S):
 
 if __name__ == "__main__":
     print("reading image...")
-    E = cv2.imread("../data/texture3.png")
+    E = cv2.imread("../data/texture2.jpg")
     E = cv2.cvtColor(E, cv2.COLOR_BGR2RGB)
     print("read image of size: ", E.shape)
     print("synthesizing texture...")
@@ -214,6 +213,6 @@ if __name__ == "__main__":
     plt.imshow(E_S)
     plt.show()
     print("saving...")
-    io.imsave("../out/synth_texture3.png", E_S)
+    io.imsave("../out/synth_texture2.jpg", E_S)
 
 
