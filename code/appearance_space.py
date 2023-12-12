@@ -22,7 +22,6 @@ def get_appearance_space_vector(im, surrounding_size, feature_distance=True):
                 patch = np.concatenate([patch, patch_edges], axis=2)
             patch = np.reshape(patch, (dims * (2 * surrounding_size + 1)**2,))
             vector_im[i - surrounding_size, j - surrounding_size] = patch
-    print(vector_im.shape)
     return conduct_pca(vector_im)
 
 
