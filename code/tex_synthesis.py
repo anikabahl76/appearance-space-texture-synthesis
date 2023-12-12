@@ -5,13 +5,14 @@ from skimage.filters import gaussian
 from skimage.util import view_as_windows
 from appearance_space import get_appearance_space_vector, get_neighborhoods, get_nearest_neighbors
 from scipy.spatial.distance import euclidean
+from skimage import io
 
 CORR_PASSES = 2
 SQRT_S = 2
-UPSAMPLE_DELTA = np.expand_dims(np.array([[0,0], [0,1], [1,0], [0,1]]), (0,1))
-CORR_DELTA = np.expand_dims(np.array([[1,1], [1,-1], [-1,1], [-1,-1]]), (0,1))
-CORR_DELTA_PRIME = np.expand_dims(np.array([[[0,0], [1,0], [0,1]], [[0,0], [1,0], [0,-1]], [[0,0], [-1,0], [0,1]], [[0,0], [-1,0], [0,-1]]]), (0,1))
-SUBPASS_DELTA = np.expand_dims(np.array([[-1, -1], [-1, 0], [-1, 1], [0, -1], [0,0], [0,1], [1, -1], [1, 0], [1, 1]]), (0,1))
+UPSAMPLE_DELTA = np.array([[0,0], [0,1], [1,0], [0,1]])
+CORR_DELTA = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
+CORR_DELTA_PRIME = np.array([[[0,0], [1,0], [0,1]], [[0,0], [1,0], [0,-1]], [[0,0], [-1,0], [0,1]], [[0,0], [-1,0], [0,-1]]])
+SUBPASS_DELTA = np.array([[-1, -1], [-1, 0], [-1, 1], [0, -1], [0,0], [0,1], [1, -1], [1, 0], [1, 1]])
 HASH_SEED = 1290 ## seed for jittering
 
 
@@ -73,30 +74,27 @@ def gaussian_stack(img, depth=2):
 
 def upsample(S, m, h, with_pyramid, synth_mode="iso", J=None):
     # TODO: check if m should be the full-sized exemplar m or the appropriate pyramid/stack's m
-    new_S = np.zeros(S.shape[0] * 2, S.shape[1] * 2, 2)
+    new_S = np.zeros((2*S.shape[0], 2*S.shape[1], 2))
 
     if synth_mode == "aniso": # not sure if this is the correct way
         h = J
 
     if with_pyramid:
-        new_S[2*S+UPSAMPLE_DELTA] = np.mod(2*S + h*UPSAMPLE_DELTA, m)
+        for delta in UPSAMPLE_DELTA:
+            i, j = np.meshgrid(np.arange(S.shape[0]), np.arange(S.shape[1]), indexing='ij')
+            new_S[2*i+delta[0],2*j+delta[1]] = np.mod(2*S + h*delta, m)
     else:
-        rhs = np.floor(h * np.subtract(UPSAMPLE_DELTA, 0.5))
-        new_S[2*S+UPSAMPLE_DELTA] = np.mod(S + rhs, m)
+        for delta in UPSAMPLE_DELTA:
+            i, j = np.meshgrid(np.arange(S.shape[0]), np.arange(S.shape[1]), indexing='ij')
+            rhs = np.floor(h * np.subtract(delta, 0.5))
+            new_S[2*i+delta[0], 2*j+delta[1]] = np.mod(S + rhs, m)
         
-    # if we need loops
-    # I, J = np.meshgrid(np.arange(S.shape[0]), np.arange(S.shape[1]))
-    # for i, j in zip(I.flatten(), J.flatten()):
-    #     for delta in np.array([[0,0], [0,1], [1,0], [0,1]]):
-    #         p = S[i, j]
-    #         new_S[2*p+delta] = np.mod(2*S[p]+h*delta, m)
-    
     return new_S
 
 
 def jitter(S, m, h, r, l):
-    J = np.zeros(S.shape[0], S.shape[1], 2)
-    J = np.floor(h * hash_coords(S, m, l) * r + np.array[[0.5, 0.5]])
+    J = np.zeros((S.shape[0], S.shape[1], 2))
+    J = np.floor(h * hash_coords(S, m, l) * r + np.array([[0.5, 0.5]]))
     return S + J
 
 
@@ -110,9 +108,19 @@ def hash_coords(S, m, l):
 
 def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs):
     ## compute Ns
-    Ns = np.zeros(S.shape[0], S.shape[1], 32)
-    for i in range(4):
-        Ns[..., 8*i:8*(i+1)] = np.sum(Ept[S + CORR_DELTA[..., i, :] + CORR_DELTA_PRIME[..., i, :, :]] - CORR_DELTA_PRIME[..., i, :], axis=2) / 3
+    Ns = np.zeros((S.shape[0], S.shape[1], 32))
+
+    i, j = np.meshgrid(np.arange(S.shape[0]), np.arange(S.shape[1]), indexing='ij')
+    
+    S = np.pad(S, ((1,1), (1,1), (0,0)), mode='constant', constant_values=0).astype(np.int32)
+    
+    for k in range(4):
+        for l, corr_delta in enumerate(CORR_DELTA):
+            for corr_delta_p in CORR_DELTA_PRIME[l]:
+                print((S[i+1 + corr_delta[0] + corr_delta_p[0], j+1 + corr_delta[1] + corr_delta_p[1]]).dtype)
+                Ns[i, j, 8*k:8*(k+1)] += Ept[S[i+1 + corr_delta[0] + corr_delta_p[0], 
+                                               j+1 + corr_delta[1] + corr_delta_p[1]] - corr_delta_p[1]]
+    Ns = Ns / 3
     Ns = pca.transform(Ns)
     Ns = np.reshape(Ns, (S.shape[0], S.shape[1], 8))
 
@@ -151,36 +159,42 @@ def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs):
             corrS[indices[..., 0] + 1, indices[..., 1] + 1] = candidates[min_idx]
 
 
-# def anisometric_correction(S, E, E_prime, J):
-#     N_s_p = N_e_u = np.zeros(S.shape)
-#     J_inv = np.linalg.inv(J)
-#     j = (J_inv * DELTA) + (J_inv * (M * DELTA))
+def anisometric_correction(S, E, E_prime, J):
+    # N_s_p = N_e_u = np.zeros(S.shape)
+    # J_inv = np.linalg.inv(J)
+    # j = (J_inv * DELTA) + (J_inv * (M * DELTA))
 
-#     N_s_p[S+DELTA] = sum(E_prime[S+j]-(J*j)+DELTA) / 3
-#     N_e_u[S+DELTA] = sum(E_prime[E+j]-(J*j)+DELTA) / 3
-#     C_p = [] # need to add C(p) stuff
-#     S = np.argmin(abs(N_s_p - N_e_u[C_p])) 
+    # N_s_p[S+DELTA] = sum(E_prime[S+j]-(J*j)+DELTA) / 3
+    # N_e_u[S+DELTA] = sum(E_prime[E+j]-(J*j)+DELTA) / 3
+    # C_p = [] # need to add C(p) stuff
+    # S = np.argmin(abs(N_s_p - N_e_u[C_p])) 
 
-#     return S
+    # return S
+    pass
 
 
 def synthesize_texture(E, synth_size=256, synth_mode="iso", with_pyramid=False):
     E = E.astype(np.float32)
+    print("building gaussian stack... or pyramid... but pyramids are for losers...")
     E_stack, with_pyramid = build_gaussian(E, with_pyramid)
     params = build_param_dict(E, with_pyramid)
     ASV_stack = []
+    print("building appearance space vectors...")
     for E_prime in E_stack:
         E_prime_tilde, _ = get_appearance_space_vector(E_prime, 2)
         ASV_stack.append(E_prime_tilde)
     neighbors_stack = []
     nearest_neighbors_stack = []
+    print("building neighborhoods and computing nearest neighbors...")
     for E_prime_tilde in ASV_stack:
         nbs, pca = get_neighborhoods(E_prime_tilde)
         neighbors_stack.append((nbs, pca))
         nearest_neighbors_stack.append(get_nearest_neighbors(nbs))
 
-    S_i = np.zeros((synth_size, synth_size, 2))
 
+    S_i = np.zeros((synth_size, synth_size, 2)).astype(np.int32)
+
+    print("beginning coarse to fine synthesis...")
     for i in range(params['l']+1):
         h = params['h'][i]
         r = params['r'][i]
@@ -188,10 +202,14 @@ def synthesize_texture(E, synth_size=256, synth_mode="iso", with_pyramid=False):
         nbhds = neighbors_stack[i][0]
         pca = neighbors_stack[i][1]
         near_nbs = nearest_neighbors_stack[i][0]
+        print("synthesizing level {}...".format(i))
+        print("upsampling...")
         S_i = upsample(S_i, params['m'], h, with_pyramid)
+        print("jittering...")
         S_i = jitter(S_i, params['m'], h, r, i)
         if i > 2:
-            for _ in range(C):
+            print("correcting...")
+            for _ in range(CORR_PASSES):
                 if synth_mode == "iso":
                     S_i = isometric_correction(S_i, E_prime_tilde, nbhds, pca, near_nbs)
                 elif synth_mode == "aniso":
@@ -201,28 +219,15 @@ def synthesize_texture(E, synth_size=256, synth_mode="iso", with_pyramid=False):
 
 
 if __name__ == "__main__":
-    # im = cv2.imread("data/texture3.png", cv2.COLOR_BGR2RGB)
-    # im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-    # stack, l = build_gaussian(im, False)
-    # for i in range(l):
-    #     plt.imshow(stack[i])
-    #     plt.show()
     print("reading image...")
-    E = cv2.imread("../data/texture3.png")
-    E = cv2.cvtColor(E, cv2.COLOR_BGR2RGB).astype(np.float32)
-    with_pyramid = False
-    print("building gaussian stack...")
-    E_stack, with_pyramid = build_gaussian(E, with_pyramid)
-    params = build_param_dict(E, with_pyramid)
-    print("building appearance space vectors...")
-    ASV_stack = []
-    for E_prime in E_stack:
-        E_prime_tilde, _ = get_appearance_space_vector(E_prime, 2)
-        ASV_stack.append(E_prime_tilde)
-    print("building neighborhoods...")
-    neighbors_stack = []
-    nearest_neighbors_stack = []
-    for E_prime_tilde in ASV_stack:
-        nbs, pca = get_neighborhoods(E_prime_tilde)
-        neighbors_stack.append((nbs, pca))
-        nearest_neighbors_stack.append(get_nearest_neighbors(nbs))
+    E = cv2.imread("../data/texture2.jpg")
+    E = cv2.cvtColor(E, cv2.COLOR_BGR2RGB)
+    print("synthesizing texture...")
+    S = synthesize_texture(E)
+    print("done! u ate that up girlie pop!")
+    plt.imshow(S)
+    plt.show()
+    print("saving...")
+    io.imsave("../out/synth_texture2.jpg", S)
+
+
