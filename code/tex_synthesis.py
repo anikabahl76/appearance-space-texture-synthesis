@@ -21,7 +21,7 @@ def build_param_dict(E):
     l = int(np.log2(params['m']))
     params['l'] = l
     
-    params['h'] = np.power(2, np.arange(start=l, stop=-1, step=-1))
+    params['h'] = np.power(2, np.arange(start=l-1, stop=-1, step=-1))
     params['r'] = np.repeat(0.5, l)
 
     return params
@@ -149,7 +149,7 @@ def anisometric_correction(S, E, E_prime, J):
     pass
 
 
-def synthesize_texture(E, synth_size=32, synth_mode="iso"):
+def synthesize_texture(E, synth_size=8, synth_mode="iso"):
     E = E.astype(np.float32)
     print("building gaussian stack... or pyramid... but pyramids are for losers...")
     E_stack = build_gaussian_stack(E)
@@ -213,6 +213,4 @@ if __name__ == "__main__":
     plt.imshow(E_S)
     plt.show()
     print("saving...")
-    io.imsave("../out/synth_texture2.jpg", E_S)
-
-
+    io.imsave("../out/synth_texture2.png", E_S)
