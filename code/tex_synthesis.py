@@ -82,15 +82,12 @@ def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs, m):
     
     S = np.pad(S, ((2,2), (2,2), (0,0)), mode='reflect').astype(np.int32)
     Ept = np.pad(Ept, ((2,2), (2,2), (0,0)), mode='reflect').astype(np.int32)
-    
-    # TODO: figure out what is going wrong here that is breaking this shawty down so bad
-    # np.clip(S, 0, 31, out=S)
 
     for k in range(4):
         for l, corr_delta in enumerate(CORR_DELTA):
             for corr_delta_p in CORR_DELTA_PRIME[l]:
-                Ept_idx = S[y+2 + corr_delta[0] + corr_delta_p[0], x+2 + corr_delta[1] + corr_delta_p[1]] - corr_delta_p[1]
-                Ns[y, x, 8*k:8*(k+1)] += Ept[Ept_idx[y,x,0] + 2, Ept_idx[y,x,1] + 2]
+                Ept_idx = S[y+1 + corr_delta[0] + corr_delta_p[0], x+1 + corr_delta[1] + corr_delta_p[1]] - corr_delta_p[1]
+                Ns[y, x, 8*k:8*(k+1)] += Ept[Ept_idx[y,x,0] + 1, Ept_idx[y,x,1] + 1]
     Ns = Ns / 3
     Ns = np.reshape(Ns, (-1, 32))
     Ns = pca.transform(Ns)
@@ -206,16 +203,16 @@ def synthesize_texture(E, synth_size=128, synth_mode="iso"):
         nbhds = neighbors_stack[i][0]
         pca = neighbors_stack[i][1]
         near_nbs = nearest_neighbors_stack[i]
-        print("synthesizing level {}...".format(i))
+        print("\tsynthesizing level {}...".format(i))
         
-        print("upsampling...")
+        print("\t\tupsampling...")
         S_i = upsample(S_i, params['m'], h)
         
         E_Si = convert_coords_to_image(E, S_i)
         io.imshow(E_Si)
         io.show()
         
-        print("jittering...")
+        print("\t\tjittering...")
         S_i = jitter(S_i, params['m'], i, h, r)
         
         E_Si = convert_coords_to_image(E, S_i)
@@ -223,7 +220,7 @@ def synthesize_texture(E, synth_size=128, synth_mode="iso"):
         io.show()
         
         if i >= 2:
-            print("correcting...")
+            print("\t\tcorrecting...")
             for _ in range(CORR_PASSES):
                 if synth_mode == "iso":
                     S_i = isometric_correction(S_i, E_prime_tilde, nbhds, pca, near_nbs, params['m'])
@@ -257,4 +254,4 @@ if __name__ == "__main__":
     plt.imshow(E_S)
     plt.show()
     print("saving...")
-    io.imsave("../out/synth_texture2.png", E_S)
+    io.imsave("../out/synth_texture3.png", E_S)
