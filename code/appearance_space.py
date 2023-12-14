@@ -6,6 +6,10 @@ from PIL import Image
 from skimage.filters import sobel
 import matplotlib.pyplot as plt
 
+
+CORR_DELTA = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
+
+
 def get_appearance_space_vector(im, surrounding_size, feature_distance=True):
     dims = 4 if feature_distance else 3
     grayscale_im = cv2.cvtColor(im,cv2.COLOR_RGB2GRAY)
@@ -35,25 +39,13 @@ def conduct_pca(image_with_features, desired_dimensions=8):
 
 
 def get_neighborhoods(image_with_features, desired_dimensions=8):
-    height, width, channels = image_with_features.shape
+    height, width, _ = image_with_features.shape
     neighbor_features = np.zeros((height, width, desired_dimensions * 4))
-    for i in range(height):
-        for j in range(width):
-            dimensions = []
-            if i > 0:
-                if j > 0:
-                    dimensions.append(image_with_features[i - 1, j - 1])
-                if j < width - 1:
-                    dimensions.append(image_with_features[i - 1, j + 1])
-            elif i < height - 1:
-                if j > 0:
-                    dimensions.append(image_with_features[i + 1, j - 1])
-                if j < width - 1:
-                    dimensions.append(image_with_features[i + 1, j + 1])
-            while len(dimensions) != 4:
-                dimensions.append(image_with_features[i, j])
-            dimensions = np.array(dimensions)
-            neighbor_features[i, j] = np.reshape(dimensions, (desired_dimensions * 4,))
+    i, j = np.meshgrid(np.arange(height), np.arange(width), indexing='ij')
+    image_with_features = np.pad(image_with_features, ((1, 1), (1, 1), (0, 0)), mode="reflect")
+    for k, delta in enumerate(CORR_DELTA):
+        neighbor_features[i, j, 8*k:8*(k+1)] = image_with_features[i + 1 + delta[0], j + 1 + delta[1]]
+    
     return conduct_pca(neighbor_features)
 
 
