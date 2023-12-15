@@ -175,17 +175,23 @@ def get_min_cut_patch(texture, as_image, tilesize, overlapsize, to_fill, to_fill
 
 
 def synthesis():
-    '''
-    Runs the texture synthesis part of the project
-    '''
-    img = cv2.imread("../data/texture5.png", )
+    img = cv2.imread("../data/texture11.png", )
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = img.astype(np.float32) / 255.
 
     # specify output size and algorithm parameters
-    outsize = (128, 128)
-    tilesize = 15
-    overlapsize = 8
+    # outsize = (128, 128)
+    # tilesize = 15
+    # overlapsize = 8
+
+
+
+    outsize = (300, 300)
+    tilesize = (int((img.shape[0] * img.shape[1] / 2000)) // 10) * 10
+    overlapsize = tilesize // 3
+    print(img.shape)
+    print(tilesize)
+    print(overlapsize)
 
     out = image_synthesis(img, outsize, tilesize, overlapsize)
     plt.imshow(out)

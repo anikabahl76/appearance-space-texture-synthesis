@@ -169,7 +169,7 @@ def anisometric_correction(S, E, E_prime, J):
 
 
 def synthesize_texture(E, synth_size=128, synth_mode="iso"):
-    E = E.astype(np.float32)
+    E = E.astype(np.float32) / 255.0
     print("building gaussian stack... or pyramid... but pyramids are for losers...")
     E_stack = build_gaussian_stack(E)
     params = build_param_dict(E)
@@ -238,6 +238,7 @@ def synthesize_texture(E, synth_size=128, synth_mode="iso"):
 def convert_coords_to_image(E, S):
     S = S.astype(np.int32)
     E_S = np.zeros((S.shape[0], S.shape[1], 3))
+    E = (E * 255).astype(np.int32)
     E_S = E[S[..., 0], S[..., 1]]
     return E_S.astype(np.int32)
 
