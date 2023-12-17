@@ -44,13 +44,12 @@ def get_neighborhoods(image_with_features, desired_dimensions=8):
     i, j = np.meshgrid(np.arange(height), np.arange(width), indexing='ij')
     image_with_features = np.pad(image_with_features, ((1, 1), (1, 1), (0, 0)), mode="reflect")
     for k, delta in enumerate(CORR_DELTA):
-        neighbor_features[i, j, 8*k:8*(k+1)] = image_with_features[i + 1 + delta[0], j + 1 + delta[1]]
+        neighbor_features[i, j, desired_dimensions*k:desired_dimensions*(k+1)] = image_with_features[i + 1 + delta[0], j + 1 + delta[1]]
     
     return conduct_pca(neighbor_features)
 
 
 def get_nearest_neighbors(nb_vectors):
-    # TODO: sanity check that linear indices (0-3600) are being mapped to the correct (y,x) coordinates
     shape = (nb_vectors.shape[0], nb_vectors.shape[1], 2)
     nb_vectors = np.reshape(nb_vectors, (-1, nb_vectors.shape[2]))
     tree = NearestNeighbors(n_neighbors=2, algorithm='kd_tree', metric='l2', n_jobs=-1).fit(nb_vectors)
