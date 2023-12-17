@@ -175,7 +175,7 @@ def get_min_cut_patch(texture, as_image, tilesize, overlapsize, to_fill, to_fill
 
 
 def synthesis():
-    img = cv2.imread("../data/texture11.png", )
+    img = cv2.imread("../data/texture12.png", )
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = img.astype(np.float32) / 255.
 

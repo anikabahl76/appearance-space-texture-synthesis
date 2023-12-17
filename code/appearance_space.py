@@ -14,8 +14,6 @@ def get_appearance_space_vector(im, surrounding_size, feature_distance=True):
     dims = 4 if feature_distance else 3
     grayscale_im = cv2.cvtColor(im,cv2.COLOR_RGB2GRAY)
     edges = sobel(grayscale_im)
-    useable_im = np.pad(im, ((surrounding_size, surrounding_size), (surrounding_size, surrounding_size), (0, 0)), mode="reflect")
-    # useable_im = im[surrounding_size:-surrounding_size, surrounding_size:-surrounding_size, :]
     vector_im = np.zeros((im.shape[0], im.shape[1], dims * (2 * surrounding_size + 1)**2))
     for i in range(surrounding_size, im.shape[0] - surrounding_size):
         for j in range(surrounding_size, im.shape[1] - surrounding_size):
@@ -36,6 +34,26 @@ def conduct_pca(image_with_features, desired_dimensions=8):
     new_features = pca.fit_transform(image_with_features)
     new_features = np.reshape(new_features, (original_shape[0], original_shape[1], desired_dimensions))
     return new_features, pca
+
+def get_adj_neighborhoods(image_with_features, desired_dimensions=8):
+    height, width, _ = image_with_features.shape
+    neighbor_features = np.zeros((height, width, desired_dimensions * 3))
+    for i in range(height):
+        for j in range(width):
+            dimensions = []
+            if i > 0:
+                dimensions.append(image_with_features[i - 1, j])
+                if j > 0:
+                    dimensions.append(image_with_features[i - 1, j - 1])
+            if j > 0:
+                dimensions.append(image_with_features[i, j - 1])
+
+            while len(dimensions) != 3:
+                dimensions.append(image_with_features[i, j])
+            dimensions = np.array(dimensions)
+            dimensions = np.reshape(dimensions, (desired_dimensions * 3,))
+            neighbor_features[i, j] = dimensions
+    return conduct_pca(neighbor_features)
 
 
 def get_neighborhoods(image_with_features, desired_dimensions=8):
