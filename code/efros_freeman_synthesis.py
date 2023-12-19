@@ -2,43 +2,18 @@ import os
 import numpy as np
 import math
 import cv2
-import argparse
-import matplotlib.pyplot as plt
-from appearance_space import get_appearance_space_vector, get_neighborhoods, get_nearest_neighbors
+import time
+from appearance_space import get_appearance_space_vector
 
 
-SOURCE_PATH = '../data'
-OUTPUT_PATH = '../output/'
-SYNTHESIS_OUTPUT_PATH = os.path.join(OUTPUT_PATH, 'synthesis')
-TRANSFER_OUTPUT_PATH = os.path.join(OUTPUT_PATH, 'transfer')
-    
+SOURCE_PATH = '../patch_data/'
+OUTPUT_PATH = '../out/'
 
 def image_synthesis(sample, outsize, tilesize, overlapsize):
-    '''
-    Takes in an sample image, and outputs an image with dimensions that are specified
-    by outsize (plus channels) that has texture synthesized from the sample
-
-    Arguments:
-    sample-       sample texure image
-    outsize-      size of result image
-    tilesize-     size of the tiles to use (patch size)
-    overlapsize-  size of the overlap region (same in each direction -> left
-                  and above)
-    texture-      texure image
-    method-       1 = random, 2 = best ssd, 3 = best ssd + minimum error boundary cut
-    quiet-        no images shown if true
-
-    Output:
-        synthesized image of size outsize[1] x outsize[2] x channels 
-    '''
-
-    # The amount of additional space each tile takes up (accounting for overlap)
     adjsize = tilesize - overlapsize
 
     as_img, _ = get_appearance_space_vector(sample, 3)
 
-    # imout is the array we will fill. The size is slightly larger than outsize to start
-    # since it will be filled with an integer number of tiles
     real_imout = np.zeros((int(math.ceil(outsize[0] / adjsize) * adjsize + overlapsize), int(math.ceil(outsize[1]/adjsize) * adjsize + overlapsize), sample.shape[2]))
     real_imout_mask = np.zeros((int(math.ceil(outsize[0] / adjsize) * adjsize + overlapsize), int(math.ceil(outsize[1]/adjsize) * adjsize + overlapsize)), dtype=bool)
     
@@ -48,12 +23,8 @@ def image_synthesis(sample, outsize, tilesize, overlapsize):
 
     # iterate over each tile
     for y in range(0, outsize[0], adjsize):
-        for x in range(0, outsize[1], adjsize):
-        
-            # the patch of imout that we want to fill
+        for x in range(0, outsize[1], adjsize):        
             to_fill = as_imout[y:y + tilesize, x:x + tilesize, :]
-
-            # the mask for this patch (includes left and above overlap)
             to_fill_mask = as_imout_mask[y:y + tilesize, x:x + tilesize]
 
             to_fill_texture = real_imout[y:y + tilesize, x:x + tilesize, :]
@@ -61,12 +32,6 @@ def image_synthesis(sample, outsize, tilesize, overlapsize):
 
             _, as_tile, texture_tile = get_min_cut_patch(sample, as_img, tilesize, overlapsize, to_fill, to_fill_mask, to_fill_texture)
 
-            # _, as_tile, texture_tile = get_ssd_patch(sample, as_img, tilesize, to_fill, to_fill_mask)
-            
-            # texture_tile = get_random_patch(sample, tilesize)
-            # as_tile = get_random_patch(as_imout, tilesize)
-
-            # update result image and mask
             real_imout[y:y + tilesize, x:x + tilesize,:] = texture_tile
             real_imout_mask[y:y + tilesize, x:x + tilesize] = 1
             as_imout[y:y + tilesize, x:x + tilesize,:] = as_tile
@@ -79,14 +44,11 @@ def image_synthesis(sample, outsize, tilesize, overlapsize):
 def get_random_patch_coordinates(texture, tilesize):
     x = np.random.randint(0, texture.shape[1] - tilesize)
     y = np.random.randint(0, texture.shape[0] - tilesize)
-
     return x, y
 
 def get_random_patch(texture, tilesize):
     x = np.random.randint(0, texture.shape[1] - tilesize)
     y = np.random.randint(0, texture.shape[0] - tilesize)
-    print(x, y)
-
     return texture[y:y+tilesize, x:x+tilesize]
 
 
@@ -175,26 +137,24 @@ def get_min_cut_patch(texture, as_image, tilesize, overlapsize, to_fill, to_fill
 
 
 def synthesis():
-    img = cv2.imread("../data/texture12.png", )
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = img.astype(np.float32) / 255.
+    for i in range(1, 14):
+        print("read image", str(i))
+        path = SOURCE_PATH + "texture" + str(i) + ".png"
+        img = cv2.imread(path)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = img.astype(np.float32) / 255.
 
-    # specify output size and algorithm parameters
-    # outsize = (128, 128)
-    # tilesize = 15
-    # overlapsize = 8
+        outsize = (300, 300)
+        tilesize = (int((img.shape[0] * img.shape[1] / 2000)) // 10) * 10
+        overlapsize = tilesize // 3
 
+        start = time.time()
+        out = image_synthesis(img, outsize, tilesize, overlapsize)
+        end = time.time()
 
-
-    outsize = (300, 300)
-    tilesize = (int((img.shape[0] * img.shape[1] / 2000)) // 10) * 10
-    overlapsize = tilesize // 3
-    print(img.shape)
-    print(tilesize)
-    print(overlapsize)
-
-    out = image_synthesis(img, outsize, tilesize, overlapsize)
-    plt.imshow(out)
-    plt.show()
+        out = (out * 255).astype(np.uint8)
+        out = cv2.cvtColor(out, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(os.path.join(OUTPUT_PATH + "texture" + str(i) + "patch_result.png"), out)
+        print("wrote image", i, "in", start-end, "seconds")
 
 synthesis()
