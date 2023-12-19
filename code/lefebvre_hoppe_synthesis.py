@@ -71,7 +71,7 @@ def hash_coords(S, h, r):
     '''
     np.random.seed(HASH_SEED + h)
     length = S.shape[0]
-    noise = generate_perlin_noise_2d((length//4, length//4), (length//16,length//16), tileable=(True, True))
+    noise = generate_perlin_noise_2d((length//2, length//2), (length//16,length//16), tileable=(True, True))
     noise = cv2.resize(noise, (length, length), interpolation=cv2.INTER_CUBIC)
     noise = np.where(np.abs(noise) > 1-r, np.sign(noise), 0)
     return noise
@@ -80,6 +80,7 @@ def hash_coords(S, h, r):
 def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs, m, iter_n):
     
     Ept = Ept.astype(np.float32)
+    S_corr = np.zeros(S.shape, dtype=np.int32)
 
     ## shuffle order of correction depending on if we are on first or second pass
     iter_n = iter_n % 2
@@ -134,77 +135,9 @@ def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs, m, iter_n):
             selections = candidates[np.arange(distances.shape[0]), min_idx]
         
             indices = indices.reshape(indices_shape)
-            S[indices[..., 0], indices[..., 1]] = np.reshape(selections, indices.shape)
+            S_corr[indices[..., 0], indices[..., 1]] = np.reshape(selections, indices.shape)
             
 
-    return S
-
-
-def isometric_correction_new(S, Ept, Nt_Ept, pca, near_nbs, iter_n):
-    
-    S_corr = np.full_like(S, -1, dtype= np.int32)
-    ## shuffle order of correction depending on if we are on first or second pass
-    iter_n = iter_n % 2
-    step = 1 if iter_n == 0 else -1
-    stop = SQRT_S if iter_n == 0 else -1
-    start = 0 if iter_n == 0 else SQRT_S-1
-
-    for i in range(start, stop, step):
-        for j in range(start, stop, step):
-
-            y, x = np.meshgrid(np.arange(i,S.shape[0],SQRT_S), np.arange(j,S.shape[1],SQRT_S), indexing='ij')
-            
-            Ns = np.zeros((y.shape[0], y.shape[0], 32))
-            S_corr_pad = np.pad(S_corr, ((1,1), (1,1), (0,0)), mode='symmetric')
-            S_pad = np.pad(S, ((1,1), (1,1), (0,0)), mode='symmetric')
-            yp = y+1
-            xp = x+1
-
-            for k, delta in enumerate(CORR_DELTA):
-                for delta_p in CORR_DELTA_PRIME[k]:
-                    idx = np.stack([yp + delta[0] + delta_p[0], xp + delta[1] + delta_p[1]], axis=2)
-                    idx = np.clip(idx, 0, S.shape[0])
-                    Ns[..., 8*k:8*(k+1)] += Ept[idx[...,0]-delta_p[0],idx[...,1]-delta_p[1]]
-            Ns /= 3
-            Ns = np.reshape(Ns, (-1,32))
-            Ns = pca.transform(Ns)
-
-            indices = np.stack([yp, xp], axis=2)
-            indices_shape = indices.shape
-            indices = np.reshape(indices, (-1, 2))
-            
-            if np.all(S_corr_pad == -1):
-                coords = S_pad[indices[...,0], indices[...,1]].astype(np.int32)
-                nbs = near_nbs[coords[..., 0], coords[..., 1]]
-                candidates = np.stack([coords, nbs], axis=2)
-                candidate_vecs = Nt_Ept[candidates[..., 0], candidates[..., 1]]
-                candidate_vecs = np.reshape(candidate_vecs, (y.shape[0] * y.shape[0], 2, 8))
-
-            else:
-                candidates = []
-                for delta in SUBPASS_DELTA:
-                    all_nbs = indices + delta
-                    filled_nbs_coord = S_corr_pad[all_nbs[..., 0], all_nbs[..., 1]].astype(np.int32)
-                    filled_near_nbs = near_nbs[filled_nbs_coord[..., 0], filled_nbs_coord[..., 1]]
-                    filled_near_nbs = filled_near_nbs - delta
-                    filled_nbs_coord = filled_nbs_coord - delta
-                    candidates.append(np.stack([filled_nbs_coord, filled_near_nbs], axis=2))
-                
-                candidates = np.array(candidates)
-                candidates = np.transpose(candidates, axes=(1,0,2,3))
-                candidates = np.reshape(candidates, (candidates.shape[0], 2 * SUBPASS_DELTA.shape[0], 2))   
-                condition = np.logical_and(candidates[...,0] != -1, candidates[...,0] != -1)[...,np.newaxis]
-                candidate_vecs = np.where(condition, Nt_Ept[candidates[..., 0], candidates[..., 1]], np.inf)
-            
-            differences = candidate_vecs - Ns[:, np.newaxis, :]
-            distances = np.linalg.norm(differences, axis=2)
-            min_idx = np.argmin(distances, axis=1)
-            selections = candidates[np.arange(distances.shape[0]), min_idx]
-            selections = np.reshape(selections, indices_shape)
-
-            S[y, x] = selections
-            S_corr[y, x] = selections
-            
     return S_corr
 
 
@@ -230,12 +163,12 @@ def convert_coords_to_rg(S, m):
 
 def view(E, S, m):
     E_Si = convert_coords_to_image(E, S)
-    io.imshow(E_Si)
-    io.show()
+    plt.imshow(E_Si)
+    plt.show()
 
     S_rgi = convert_coords_to_rg(S, m)
-    io.imshow(S_rgi)
-    io.show()
+    plt.imshow(S_rgi)
+    plt.show()
 
 
 def synthesize_texture(E, synth_size=32):
@@ -260,8 +193,6 @@ def synthesize_texture(E, synth_size=32):
 
     S_i = np.stack(np.meshgrid(np.arange(synth_size), np.arange(synth_size), indexing='ij'), axis=2)
     S_i = np.mod(S_i, np.min([params['m'], synth_size]))
-
-    view(E, S_i, params['m'])
 
     print("beginning coarse to fine synthesis...")
     for i in range(params['l']):
@@ -297,7 +228,7 @@ def main(args):
     E = cv2.cvtColor(E, cv2.COLOR_BGR2RGB)
     print("read image of size: ", E.shape)
     print("synthesizing texture...")
-    S = synthesize_texture(E, args.synth_size)
+    S = synthesize_texture(E, args.scale)
     print("done! u ate that up girlie pop!")
     E_S = convert_coords_to_image(E, S)
     plt.imshow(E_S)
@@ -310,7 +241,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Synthesize a texture.')
     parser.add_argument('--data', type=str, default="../data", help='path to data directory')
     parser.add_argument('--image_path', type=str, default="texture3_64.png", help='path to image to synthesize (must be in data directory)')
-    parser.add_argument('--synth_size', type=int, default=32, help='scale of synthesized texture relative to original image in each dimensions (must be a power of 2)')
+    parser.add_argument('--scale', type=int, default=32, help='scale of synthesized texture relative to original image in each dimensions (must be a power of 2)')
     args = parser.parse_args()
     return args
 
