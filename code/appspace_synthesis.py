@@ -275,10 +275,7 @@ def synthesize_texture(E, synth_size=32):
         if i > 2:
             print("\t\tcorrecting...")
             for _ in range(CORR_PASSES):
-                if synth_mode == "iso":
-                    S_i = isometric_correction(S_i, E_prime_tilde, nbhds, pca, near_nbs, params['m'])
-                elif synth_mode == "aniso":
-                    S_i = anisometric_correction(S_i, E_prime_tilde)
+                S_i = isometric_correction(S_i, E_prime_tilde, nbhds, pca, near_nbs, params['m'])
         
             view(E, S_i, params['m'])
         
