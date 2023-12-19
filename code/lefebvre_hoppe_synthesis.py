@@ -22,11 +22,11 @@ def build_param_dict(E):
     params = {}
 
     params['m'] = E.shape[0]
-    l = int(np.log2(params['m']))
+    l = int(np.log2(params['m'])) -1
     params['l'] = l
     
-    params['h'] = np.power(2, np.arange(start=l-1, stop=-1, step=-1))
-    params['r'] = np.power(.75, .5 * np.arange(start=l-1, stop=-1, step=-1))
+    params['h'] = np.power(2, np.arange(start=l, stop=-1, step=-1))
+    params['r'] = np.power(.75, .5 * np.arange(start=l, stop=-1, step=-1))
 
     return params
 
@@ -77,12 +77,18 @@ def hash_coords(S, h, r):
     return noise
 
 
-def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs, m):
+def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs, m, iter_n):
     
     Ept = Ept.astype(np.float32)
 
-    for i in range(SQRT_S):
-        for j in range(SQRT_S):
+    ## shuffle order of correction depending on if we are on first or second pass
+    iter_n = iter_n % 2
+    step = 1 if iter_n == 0 else -1
+    stop = SQRT_S if iter_n == 0 else -1
+    start = 0 if iter_n == 0 else SQRT_S-1
+
+    for i in range(start, stop, step):
+        for j in range(start, stop, step):
 
             indices = np.stack(np.meshgrid(np.arange(i,S.shape[0],SQRT_S), np.arange(j,S.shape[1],SQRT_S), indexing='ij'), axis=2)
             y = indices[..., 0]
@@ -134,14 +140,17 @@ def isometric_correction(S, Ept, Nt_Ept, pca, near_nbs, m):
     return S
 
 
-def isometric_correction_new(S, Ept, Nt_Ept, pca, near_nbs, m):
+def isometric_correction_new(S, Ept, Nt_Ept, pca, near_nbs, iter_n):
     
     S_corr = np.full_like(S, -1, dtype= np.int32)
-    # Nt_Ept = np.pad(Nt_Ept, ((2,2), (2,2), (0,0)), mode='symmetric')
-    # Ept = np.pad(Ept, ((2,2), (2,2), (0,0)), mode='symmetric').astype(np.float32)
+    ## shuffle order of correction depending on if we are on first or second pass
+    iter_n = iter_n % 2
+    step = 1 if iter_n == 0 else -1
+    stop = SQRT_S if iter_n == 0 else -1
+    start = 0 if iter_n == 0 else SQRT_S-1
 
-    for i in range(SQRT_S):
-        for j in range(SQRT_S):
+    for i in range(start, stop, step):
+        for j in range(start, stop, step):
 
             y, x = np.meshgrid(np.arange(i,S.shape[0],SQRT_S), np.arange(j,S.shape[1],SQRT_S), indexing='ij')
             
@@ -258,9 +267,9 @@ def synthesize_texture(E, synth_size=32):
     for i in range(params['l']):
         h = params['h'][i]
         r = params['r'][i]
-        E_prime_tilde = ASV_stack[-1]
-        nbhds = neighbors_stack[-1][0]
-        pca = neighbors_stack[-1][1]
+        E_prime_tilde = ASV_stack[i]
+        nbhds = neighbors_stack[i][0]
+        pca = neighbors_stack[i][1]
         near_nbs = nearest_neighbors_stack[-1]
         print("\tsynthesizing level {}...".format(i))
         
@@ -275,7 +284,7 @@ def synthesize_texture(E, synth_size=32):
         if i > 2:
             print("\t\tcorrecting...")
             for _ in range(CORR_PASSES):
-                S_i = isometric_correction(S_i, E_prime_tilde, nbhds, pca, near_nbs, params['m'])
+                S_i = isometric_correction(S_i, E_prime_tilde, nbhds, pca, near_nbs, params['m'], i)
         
             view(E, S_i, params['m'])
         
@@ -294,15 +303,14 @@ def main(args):
     plt.imshow(E_S)
     plt.show()
     print("saving...")
-    io.imsave(f"../out/synth_{args.image_path}", E_S)
+    io.imsave(f"../out/lefebvre_hoppe_{args.image_path}", E_S)
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Synthesize a texture.')
     parser.add_argument('--data', type=str, default="../data", help='path to data directory')
-    parser.add_argument('--image_path', type=str, default="texture5.png", help='path to image to synthesize (must be in data directory)')
+    parser.add_argument('--image_path', type=str, default="texture3_64.png", help='path to image to synthesize (must be in data directory)')
     parser.add_argument('--synth_size', type=int, default=32, help='scale of synthesized texture relative to original image in each dimensions (must be a power of 2)')
-    parser.add_argument('--synth_mode', type=str, default="iso", help='isometric or anisometric synthesis')
     args = parser.parse_args()
     return args
 
