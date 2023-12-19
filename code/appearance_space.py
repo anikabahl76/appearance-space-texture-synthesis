@@ -14,6 +14,8 @@ def get_appearance_space_vector(im, surrounding_size, feature_distance=True):
     dims = 4 if feature_distance else 3
     grayscale_im = cv2.cvtColor(im,cv2.COLOR_RGB2GRAY)
     edges = sobel(grayscale_im)
+    edges = 1 - edges
+
     vector_im = np.zeros((im.shape[0], im.shape[1], dims * (2 * surrounding_size + 1)**2))
     for i in range(surrounding_size, im.shape[0] - surrounding_size):
         for j in range(surrounding_size, im.shape[1] - surrounding_size):
